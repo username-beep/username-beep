@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Budget Tracker - Interaktive Diagrammer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        canvas { max-height: 400px; }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-green-50 to-teal-100 min-h-screen">
+    <div class="max-w-7xl mx-auto p-4">
+        <!-- Header -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <div class="flex items-center justify-between mb-4">
+                <h1 class="text-3xl font-bold text-gray-800 flex items-center gap-3">
+                    <svg class="w-9 h-9 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    Budget Tracker
+                </h1>
+                <span class="bg-teal-100 text-teal-700 px-4 py-1 rounded-full text-sm font-medium">
+                    Interaktive diagrammer
+                </span>
+            </div>
+
+            <!-- Month Navigator -->
+            <div class="flex items-center justify-between bg-gray-50 rounded-lg p-4">
+                <button onclick="changeMonth(-1)" class="flex items-center gap-2 text-gray-700 hover:text-teal-600 font-medium">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                    </svg>
+                    Forrige
+                </button>
+                <div class="text-center">
+                    <p class="text-sm text-gray-600">Viser måned</p>
+                    <p id="currentMonthDisplay" class="text-lg font-bold text-gray-800"></p>
+                </div>
+                <button onclick="changeMonth(1)" class="flex items-center gap-2 text-gray-700 hover:text-teal-600 font-medium">
+                    Næste
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div class="bg-white rounded-lg shadow p-6">
+                <p class="text-gray-600 text-sm">Total budget</p>
+                <p id="totalBudget" class="text-2xl font-bold text-gray-800">0 kr</p>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6">
+                <p class="text-gray-600 text-sm">Brugt denne måned</p>
+                <p id="monthSpent" class="text-2xl font-bold text-gray-800">0 kr</p>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6">
+                <p class="text-gray-600 text-sm">Tilbage</p>
+                <p id="monthRemaining" class="text-2xl font-bold">0 kr</p>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6">
+                <p class="text-gray-600 text-sm">Udgifter vist</p>
+                <p id="expenseCount" class="text-2xl font-bold text-gray-800">0</p>
+            </div>
+        </div>
+
+        <!-- Filter Info -->
+        <div id="filterInfo" class="mb-4 hidden">
+            <div class="bg-teal-50 border border-teal-200 rounded-lg p-4 flex items-center justify-between">
+                <p class="text-teal-800">
+                    Viser kun udgifter fra: <span id="activeFilter" class="font-bold"></span>
+                </p>
+                <button onclick="clearFilter()" class="bg-teal-600 text-white px-4 py-2 rounded hover:bg-teal-700 transition">
+                    Vis alle udgifter
+                </button>
+            </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">Forbrug fordelt på kategori (klik for at filtrere)</h2>
+                <canvas id="doughnutChart"></canvas>
+            </div>
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">Budget vs. Forbrug (klik på forbrugsbjælke for at filtrere)</h2>
+                <canvas id="barChart"></canvas>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Main Content -->
+            <div class="lg:col-span-2 space-y-6">
+                <!-- Budget Settings -->
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <h2 class="text-xl font-bold text-gray-800 mb-4">Månedligt budget pr. kategori</h2>
+                    <div id="budgetSettings" class="space-y-3"></div>
+                    <button onclick="saveBudgets()" class="mt-4 bg-teal-600 text-white px-5 py-2 rounded-lg hover:bg-teal-700 transition">
+                        Gem budgetter
+                    </button>
+                </div>
+
+                <!-- Expenses List -->
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-xl font-bold text-gray-800">Udgifter denne måned</h2>
+                        <button onclick="toggleAddForm()" class="bg-teal-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-teal-700 transition">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                            </svg>
+                            Tilføj udgift
+                        </button>
+                    </div>
+
+                    <!-- Add Form -->
+                    <div id="addForm" class="bg-gray-50 rounded-lg p-4 mb-6 hidden">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <input type="text" id="description" placeholder="Beskrivelse (fx Netto, taxa)" class="border border-gray-300 rounded px-4 py-2">
+                            <input type="number" step="0.01" id="amount" placeholder="Beløb (kr)" class="border border-gray-300 rounded px-4 py-2">
+                            <select id="category" class="border border-gray-300 rounded px-4 py-2">
+                                <option>Mad & dagligvarer</option>
+                                <option>Transport</option>
+                                <option>Bolig (husleje, el osv.)</option>
+                                <option>Fritid & underholdning</option>
+                                <option>Sundhed</option>
+                                <option>Shopping</option>
+                                <option>Andet</option>
+                            </select>
+                            <input type="date" id="date" class="border border-gray-300 rounded px-4 py-2">
+                        </div>
+                        <div class="flex gap-3 mt-4">
+                            <button onclick="addExpense()" class="bg-teal-600 text-white px-5 py-2 rounded hover:bg-teal-700 flex-1">
+                                Gem udgift
+                            </button>
+                            <button onclick="toggleAddForm()" class="bg-gray-300 text-gray-700 px-5 py-2 rounded hover:bg-gray-400">
+                                Annuller
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Expenses List -->
+                    <div id="expensesList" class="space-y-3">
+                        <div class="text-center py-12 text-gray-500">
+                            <p>Ingen udgifter endnu denne måned. Tilføj din første!</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sidebar -->
+            <div class="space-y-6">
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <h2 class="text-xl font-bold text-gray-800 mb-4">Forbrug pr. kategori</h2>
+                    <div id="categoryOverview" class="space-y-4">
+                        <p class="text-gray-500 text-sm">Indstil budgetter for at se detaljer</p>
+                    </div>
+                </div>
+
+                <div class="bg-gradient-to-br from-teal-600 to-cyan-600 rounded-lg shadow-lg p-6 text-white">
+                    <h3 class="text-lg font-bold mb-2">Interaktivitet</h3>
+                    <ul class="text-sm space-y-2 text-teal-100">
+                        <li>✓ Klik på diagrammerne for at filtrere udgifter</li>
+                        <li>✓ Klik på legend for at vise/skjule kategorier</li>
+                        <li>✓ "Vis alle" fjerner filter</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const categories = [
+            'Mad & dagligvarer',
+            'Transport',
+            'Bolig (husleje, el osv.)',
+            'Fritid & underholdning',
+            'Sundhed',
+            'Shopping',
+            'Andet'
+        ];
+
+        const categoryColors = {
+            'Mad & dagligvarer': '#10b981',
+            'Transport': '#3b82f6',
+            'Bolig (husleje, el osv.)': '#8b5cf6',
+            'Fritid & underholdning': '#f59e0b',
+            'Sundhed': '#ef4444',
+            'Shopping': '#ec4899',
+            'Andet': '#6b7280'
+        };
+
+        let expenses = [];
+        let budgets = {};
+        let currentViewMonth = new Date().toISOString().slice(0, 7);
+        let activeCategoryFilter = null;
+
+        let doughnutChart = null;
+        let barChart = null;
+
+        function loadData() {
+            const storedExpenses = localStorage.getItem('budgetExpenses');
+            const storedBudgets = localStorage.getItem('budgetBudgets');
+            if (storedExpenses) expenses = JSON.parse(storedExpenses);
+            if (storedBudgets) budgets = JSON.parse(storedBudgets);
+            updateUI();
+        }
+
+        function saveData() {
+            localStorage.setItem('budgetExpenses', JSON.stringify(expenses));
+            localStorage.setItem('budgetBudgets', JSON.stringify(budgets));
+        }
+
+        function changeMonth(direction) {
+            let [year, month] = currentViewMonth.split('-').map(Number);
+            month += direction;
+            if (month > 12) { month = 1; year++; }
+            if (month < 1) { month = 12; year--; }
+            currentViewMonth = `${year}-${month.toString().padStart(2, '0')}`;
+            activeCategoryFilter = null;
+            updateUI();
+        }
+
+        function updateMonthDisplay() {
+            const [year, month] = currentViewMonth.split('-');
+            const date = new Date(year, month - 1);
+            const monthName = date.toLocaleDateString('da-DK', { month: 'long', year: 'numeric' });
+            document.getElementById('currentMonthDisplay').textContent = monthName;
+        }
+
+        function toggleAddForm() {
+            const form = document.getElementById('addForm');
+            form.classList.toggle('hidden');
+            if (!form.classList.contains('hidden')) {
+                document.getElementById('date').valueAsDate = new Date();
+            }
+        }
+
+        function addExpense() {
+            const description = document.getElementById('description').value.trim();
+            const amount = parseFloat(document.getElementById('amount').value);
+            const category = document.getElementById('category').value;
+            const date = document.getElementById('date').value;
+
+            if (description && amount && date && date.startsWith(currentViewMonth)) {
+                expenses.unshift({ id: Date.now(), description, amount, category, date });
+                saveData();
+                updateUI();
+                toggleAddForm();
+                document.getElementById('description').value = '';
+                document.getElementById('amount').value = '';
+            } else if (!date.startsWith(currentViewMonth)) {
+                alert('Datoen skal være i den aktuelt viste måned');
+            }
+        }
+
+        function deleteExpense(id) {
+            if (confirm('Slet denne udgift?')) {
+                expenses = expenses.filter(e => e.id !== id);
+                saveData();
+                updateUI();
+            }
+        }
+
+        function getVisibleExpenses() {
+            let filtered = expenses.filter(e => e.date.startsWith(currentViewMonth));
+            if (activeCategoryFilter) {
+                filtered = filtered.filter(e => e.category === activeCategoryFilter);
+            }
+            return filtered;
+        }
+
+        function getMonthBudget() {
+            return budgets[currentViewMonth] || {};
+        }
+
+        function setCategoryFilter(category) {
+            activeCategoryFilter = category;
+            updateUI();
+        }
+
+        function clearFilter() {
+            activeCategoryFilter = null;
+            updateUI();
+        }
+
+        function saveBudgets() {
+            const monthBudget = {};
+            categories.forEach(cat => {
+                const input = document.getElementById(`budget-${cat}`);
+                const value = parseFloat(input.value) || 0;
+                if (value > 0) monthBudget[cat] = value;
+            });
+            budgets[currentViewMonth] = monthBudget;
+            saveData();
+            updateUI();
+        }
+
+        function updateCharts() {
+            const allMonthExpenses = expenses.filter(e => e.date.startsWith(currentViewMonth));
+            const monthBudget = getMonthBudget();
+
+            // Doughnut chart
+            const spentByCat = {};
+            allMonthExpenses.forEach(e => {
+                spentByCat[e.category] = (spentByCat[e.category] || 0) + e.amount;
+            });
+
+            const doughnutLabels = Object.keys(spentByCat);
+            const doughnutData = Object.values(spentByCat);
+            const doughnutBg = doughnutLabels.map(cat => categoryColors[cat] || '#9ca3af');
+
+            if (doughnutChart) doughnutChart.destroy();
+            doughnutChart = new Chart(document.getElementById('doughnutChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: doughnutLabels.length ? doughnutLabels : ['Ingen data'],
+                    datasets: [{
+                        data: doughnutData.length ? doughnutData : [1],
+                        backgroundColor: doughnutBg.length ? doughnutBg : ['#e5e7eb'],
+                        borderWidth: 2,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'bottom' },
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => `${ctx.label}: ${ctx.parsed.toLocaleString('da-DK')} kr`
+                            }
+                        }
+                    },
+                    onClick: (event, elements) => {
+                        if (elements.length > 0) {
+                            const index = elements[0].index;
+                            const category = doughnutChart.data.labels[index];
+                            setCategoryFilter(category);
+                        }
+                    }
+                }
+            });
+
+            // Bar chart
+            const barLabels = categories.filter(cat => monthBudget[cat] > 0);
+            const budgetData = barLabels.map(cat => monthBudget[cat]);
+            const spentData = barLabels.map(cat => {
+                return allMonthExpenses.filter(e => e.category === cat).reduce((s, e) => s + e.amount, 0);
+            });
+
+            if (barChart) barChart.destroy();
+            barChart = new Chart(document.getElementById('barChart'), {
+                type: 'bar',
+                data: {
+                    labels: barLabels,
+                    datasets: [
+                        { label: 'Budget', data: budgetData, backgroundColor: '#34d399' },
+                        {
+                            label: 'Forbrug',
+                            data: spentData,
+                            backgroundColor: spentData.map((spent, i) => spent > budgetData[i] ? '#ef4444' : '#10b981')
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { callback: value => value.toLocaleString('da-DK') + ' kr' }
+                        }
+                    },
+                    plugins: {
+                        legend: { position: 'top' },
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y.toLocaleString('da-DK')} kr`
+                            }
+                        }
+                    },
+                    onClick: (event, elements) => {
+                        if (elements.length > 0) {
+                            const element = elements[0];
+                            if (element.datasetIndex === 1) { // Kun forbrug-bjælker
+                                const index = element.index;
+                                const category = barChart.data.labels[index];
+                                setCategoryFilter(category);
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateUI() {
+            updateMonthDisplay();
+
+            const visibleExpenses = getVisibleExpenses();
+            const allMonthExpenses = expenses.filter(e => e.date.startsWith(currentViewMonth));
+            const monthBudget = getMonthBudget();
+
+            const totalSpent = allMonthExpenses.reduce((s, e) => s + e.amount, 0);
+            const totalBudget = Object.values(monthBudget).reduce((s, b) => s + b, 0);
+            const remaining = totalBudget - totalSpent;
+
+            document.getElementById('totalBudget').textContent = totalBudget.toLocaleString('da-DK') + ' kr';
+            document.getElementById('monthSpent').textContent = totalSpent.toLocaleString('da-DK') + ' kr';
+            document.getElementById('monthRemaining').textContent = remaining.toLocaleString('da-DK') + ' kr';
+            document.getElementById('expenseCount').textContent = visibleExpenses.length;
+
+            const remainingEl = document.getElementById('monthRemaining');
+            remainingEl.classList.remove('text-green-600', 'text-red-600');
+            remainingEl.classList.add(remaining >= 0 ? 'text-green-600' : 'text-red-600');
+
+            // Filter info
+            const filterInfo = document.getElementById('filterInfo');
+            if (activeCategoryFilter) {
+                filterInfo.classList.remove('hidden');
+                document.getElementById('activeFilter').textContent = activeCategoryFilter;
+            } else {
+                filterInfo.classList.add('hidden');
+            }
+
+            // Budget inputs
+            document.getElementById('budgetSettings').innerHTML = categories.map(cat => `
+                <div class="flex items-center gap-3">
+                    <label class="flex-1 text-gray-700">${cat}</label>
+                    <input type="number" id="budget-${cat}" placeholder="0" value="${monthBudget[cat] || ''}"
+                           class="w-32 border border-gray-300 rounded px-3 py-2 text-right">
+                    <span class="text-gray-500">kr</span>
+                </div>
+            `).join('');
+
+            // Expenses list
+            const list = document.getElementById('expensesList');
+            if (visibleExpenses.length === 0) {
+                list.innerHTML = `<div class="text-center py-12 text-gray-500">
+                    <p>${activeCategoryFilter ? 'Ingen udgifter i kategorien ' + activeCategoryFilter : 'Ingen udgifter endnu denne måned.'}</p>
+                </div>`;
+            } else {
+                list.innerHTML = visibleExpenses.map(e => `
+                    <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h3 class="font-semibold text-gray-800">${e.description}</h3>
+                                <p class="text-sm text-gray-500">${e.date} • ${e.category}</p>
+                            </div>
+                            <div class="flex items-center gap-4">
+                                <p class="text-xl font-bold text-gray-800">${e.amount.toLocaleString('da-DK')} kr</p>
+                                <button onclick="deleteExpense(${e.id})" class="text-red-500 hover:text-red-700">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            // Category progress bars
+            const overview = document.getElementById('categoryOverview');
+            if (totalBudget === 0) {
+                overview.innerHTML = '<p class="text-gray-500 text-sm">Indstil budgetter for at se detaljer</p>';
+            } else {
+                const categoryData = categories.map(cat => {
+                    const budget = monthBudget[cat] || 0;
+                    const spentCat = allMonthExpenses.filter(e => e.category === cat).reduce((s, e) => s + e.amount, 0);
+                    const percent = budget > 0 ? (spentCat / budget) * 100 : 0;
+                    let barColor = 'bg-green-500';
+                    if (percent > 100) barColor = 'bg-red-500';
+                    else if (percent > 80) barColor = 'bg-orange-500';
+
+                    return { cat, budget, spent: spentCat, percent, barColor };
+                }).filter(c => c.budget > 0);
+
+                overview.innerHTML = categoryData.map(c => `
+                    <div class="space-y-2">
+                        <div class="flex justify-between text-sm">
+                            <span class="text-gray-700">${c.cat}</span>
+                            <span class="font-semibold">${c.spent.toLocaleString('da-DK')} / ${c.budget.toLocaleString('da-DK')} kr</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-3">
+                            <div class="${c.barColor} h-3 rounded-full transition-all duration-500" style="width: ${Math.min(c.percent, 100)}%"></div>
+                        </div>
+                    </div>
+                `).join('<div class="my-4"></div>');
+            }
+
+            updateCharts();
+        }
+
+        loadData();
+    </script>
+</body>
+</html>
